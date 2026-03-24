@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { getProducts, getCategories } from '../services/api';
+import { useEffect, useMemo, useState } from 'react';
+import { getAllProducts, getCategories } from '../services/api';
 import ProductCard from '../components/ProductCard';
 import Loader from '../components/Loader';
 import ErrorMessage from '../components/ErrorMessage';
@@ -10,7 +10,7 @@ import SortSelect from '../components/SortSelect';
 function Products() {
   const PRODUCTS_PER_PAGE = 12;
 
-  const [products, setProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingCategories, setLoadingCategories] = useState(true);
@@ -21,7 +21,6 @@ function Products() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [sortOption, setSortOption] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalProducts, setTotalProducts] = useState(0);
 
   useEffect(() => {
     async function loadCategories() {
@@ -44,17 +43,8 @@ function Products() {
         setLoadingProducts(true);
         setError('');
 
-        const skip = (currentPage - 1) * PRODUCTS_PER_PAGE;
-
-        const data = await getProducts(
-          submittedSearch,
-          selectedCategory,
-          PRODUCTS_PER_PAGE,
-          skip
-        );
-
-        setProducts(data.products);
-        setTotalProducts(data.total);
+        const data = await getAllProducts();
+        setAllProducts(data.products);
       } catch (error) {
         setError(error.message);
       } finally {
@@ -63,12 +53,12 @@ function Products() {
     }
 
     loadProducts();
-  }, [submittedSearch, selectedCategory, currentPage]);
+  }, []);
 
   function handleSearch() {
     setSelectedCategory('');
     setCurrentPage(1);
-    setSubmittedSearch(searchTerm);
+    setSubmittedSearch(searchTerm.trim());
   }
 
   function handleCategoryChange(event) {
@@ -82,24 +72,52 @@ function Products() {
 
   function handleSortChange(event) {
     setSortOption(event.target.value);
+    setCurrentPage(1);
   }
 
-  const sortedProducts = [...products].sort((a, b) => {
+  const filteredProducts = useMemo(() => {
+    let result = [...allProducts];
+
+    if (submittedSearch) {
+      result = result.filter((product) =>
+        product.title.toLowerCase().includes(submittedSearch.toLowerCase())
+      );
+    }
+
+    if (selectedCategory) {
+      result = result.filter(
+        (product) => product.category === selectedCategory
+      );
+    }
+
     switch (sortOption) {
       case 'title-asc':
-        return a.title.localeCompare(b.title);
+        result.sort((a, b) => a.title.localeCompare(b.title));
+        break;
       case 'title-desc':
-        return b.title.localeCompare(a.title);
+        result.sort((a, b) => b.title.localeCompare(a.title));
+        break;
       case 'price-asc':
-        return a.price - b.price;
+        result.sort((a, b) => a.price - b.price);
+        break;
       case 'price-desc':
-        return b.price - a.price;
+        result.sort((a, b) => b.price - a.price);
+        break;
       default:
-        return 0;
+        break;
     }
-  });
 
+    return result;
+  }, [allProducts, submittedSearch, selectedCategory, sortOption]);
+
+  const totalProducts = filteredProducts.length;
   const totalPages = Math.ceil(totalProducts / PRODUCTS_PER_PAGE);
+
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * PRODUCTS_PER_PAGE;
+    const end = start + PRODUCTS_PER_PAGE;
+    return filteredProducts.slice(start, end);
+  }, [filteredProducts, currentPage]);
 
   const selectedCategoryName =
     categories.find((category) => category.slug === selectedCategory)?.name || '';
@@ -153,16 +171,16 @@ function Products() {
 
       {error && <ErrorMessage message={error} />}
 
-      {!loadingProducts && !error && products.length === 0 && (
+      {!loadingProducts && !error && filteredProducts.length === 0 && (
         <div className="alert alert-warning" role="alert">
           Não foram encontrados produtos.
         </div>
       )}
 
-      {!loadingProducts && !error && sortedProducts.length > 0 && (
+      {!loadingProducts && !error && paginatedProducts.length > 0 && (
         <>
           <div className="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
-            {sortedProducts.map((product) => (
+            {paginatedProducts.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
