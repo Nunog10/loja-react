@@ -6,10 +6,10 @@ function SortSelect({ sortOption, onChange }) {
       onChange={onChange}
     >
       <option value="">Ordenar por...</option>
-      <option value="Nome A-Z">Nome A-Z</option>
-      <option value="Nome Z-A">Nome Z-A</option>
-      <option value="Preço crescente">Preço crescente</option>
-      <option value="Preço decrescente">Preço decrescente</option>
+      <option value="title-asc">Nome A-Z</option>
+      <option value="title-desc">Nome Z-A</option>
+      <option value="price-asc">Preço crescente</option>
+      <option value="price-desc">Preço decrescente</option>
     </select>
   );
 }
